@@ -2,13 +2,12 @@
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
-namespace GroundhogWeb.Services;
-
-public class GuildsService
+namespace GroundhogWeb.Repositories;
+public class GuildsRepository
 {
     private readonly IMongoCollection<Guild> _guildsCollection;
 
-    public GuildsService(
+    public GuildsRepository(
         IOptions<DatabaseSettings> databaseSettings)
     {
         var mongoClient = new MongoClient(
@@ -20,10 +19,10 @@ public class GuildsService
         _guildsCollection = mongoDatabase.GetCollection<Guild>("guilds");
     }
 
-    public async Task<List<Guild>> GetAsync() =>
+    public async Task<List<Guild>> GetAllAsync() =>
         await _guildsCollection.Find(_ => true).ToListAsync();
 
-    public async Task<Guild?> GetAsync(string id) =>
+    public async Task<Guild?> GetByIdAsync(string id) =>
         await _guildsCollection.Find(x => x.Id == id).FirstOrDefaultAsync();
 
     public async Task CreateAsync(Guild newGuild) =>

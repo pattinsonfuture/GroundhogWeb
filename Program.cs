@@ -1,7 +1,7 @@
 
 using AspNet.Security.OAuth.Discord;
 using GroundhogWeb.Models;
-using GroundhogWeb.Services;
+using GroundhogWeb.Repositories;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using System.Net.Http.Headers;
@@ -19,7 +19,9 @@ namespace GroundhogWeb
             builder.Services.Configure<DatabaseSettings>(
             builder.Configuration.GetSection("MongoDB"));
 
-            builder.Services.AddSingleton<GuildsService>();
+            // 引入所有Repositories
+            builder.Services.AddSingleton<UsersRepository>();
+            builder.Services.AddSingleton<GuildsRepository>();
 
             // Add authentication services
             builder.Services.AddAuthentication(options =>

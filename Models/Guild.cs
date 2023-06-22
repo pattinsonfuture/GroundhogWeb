@@ -13,10 +13,3 @@ public class Guild
     public string GuildName { get; set; } = null!;
     public List<Plugin> plugins { get; set; }
 }
-
-public class Plugin
-{
-    public string name { get; set; }
-    public bool isEnabled { get; set; }
-    public string useChannel { get; set; }
-}

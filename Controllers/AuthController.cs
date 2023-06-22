@@ -12,6 +12,10 @@ using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using AspNet.Security.OAuth.Discord;
+using GroundhogWeb.Repositories;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace GroundhogWeb.Controllers
 {
@@ -20,12 +24,12 @@ namespace GroundhogWeb.Controllers
     {
         private readonly IHttpClientFactory _clientFactory;
         private readonly IConfiguration _configuration;
-        private readonly IHttpContextAccessor _httpContextAccessor;
-        public AuthController(IHttpClientFactory clientFactory, IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
+        private readonly UsersRepository _usersRepo;
+        public AuthController(IHttpClientFactory clientFactory, IConfiguration configuration, UsersRepository usersRepository)
         {
             _clientFactory = clientFactory;
             _configuration = configuration;
-            _httpContextAccessor = httpContextAccessor;
+            _usersRepo = usersRepository;
         }
         [HttpGet("login")]
         public IActionResult Login()
@@ -51,7 +55,6 @@ namespace GroundhogWeb.Controllers
             var refreshToken = authenticateResult.Properties.GetTokenValue("refresh_token");
             var scope = authenticateResult.Properties.GetTokenValue("scope");
 
-            // Now you can use these tokens
             // 列出使用者的 Discord 資料
             var request = new HttpRequestMessage(HttpMethod.Get, "https://discord.com/api/users/@me");
             request.Headers.Authorization = new AuthenticationHeaderValue(tokenType, accessToken);
@@ -74,16 +77,80 @@ namespace GroundhogWeb.Controllers
 
             // 如果成功返回使用者資料
             var content = await response.Content.ReadAsStringAsync();
-            var user = JsonSerializer.Deserialize<Dictionary<string, object>>(content);
+            var user = CreateUserFromDictionary(JsonSerializer.Deserialize<Dictionary<string, object>>(content));
             if (user != null)
             {
-                return Ok(user);
+                // 檢查Mongo是否存在該使用者
+                var checkIfUserExists = await _usersRepo.GetByIdAsync(user.Id);
+                if (checkIfUserExists is null)
+                {
+                    // 如果不存在，則新增使用者
+                    await _usersRepo.CreateAsync(user);
+                }
+                else
+                {
+                    // 如果存在，則更新使用者
+                    await _usersRepo.UpdateAsync(user.Id, user);
+                }
+
+                // 使用JWT加密使用者id，並存入Cookie
+                var claims = new List<Claim>
+                    {
+                        new Claim(ClaimTypes.NameIdentifier, user.Id)
+                    };
+                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtKey"]));
+                var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+                var expires = DateTime.Now.AddDays(Convert.ToDouble(7));
+
+                var token = new JwtSecurityToken(
+                    issuer: _configuration["ClientDomain"],
+                    audience: _configuration["ClientDomain"],
+                    claims: claims,
+                    expires: expires,
+                    signingCredentials: creds
+                );
+
+                var jwtToken = new JwtSecurityTokenHandler().WriteToken(token);
+
+                Response.Cookies.Append(
+                    "JwtToken",
+                    jwtToken,
+                    new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = true,
+                        SameSite = SameSiteMode.None,
+                        Expires = expires
+                    }
+                );
+
+                // 登入成功，返回Client端Domain
+                return Redirect(_configuration["ClientDomain"]);
             }
 
 
 
             // Redirect to home page or wherever you want
-            return Redirect("/");
+            return Redirect(_configuration["ClientDomain"]);
+
+        }
+
+        private Models.User CreateUserFromDictionary(Dictionary<string, object> user)
+        {
+            return new Models.User
+            {
+                Id = user["id"].ToString(),
+                Username = user["username"].ToString(),
+                Discriminator = user["discriminator"].ToString(),
+                Avatar = user["avatar"]?.ToString(),
+                Email = user["email"]?.ToString(),
+                Verified = user["verified"] is bool verified && verified,
+                Locale = user["locale"]?.ToString(),
+                MfaEnabled = user["mfa_enabled"] is bool mfaEnabled && mfaEnabled,
+                Flags = user["flags"] is int flags ? flags : 0,
+                PremiumType = user["premium_type"] is int premiumType ? premiumType : 0,
+                PublicFlags = user["public_flags"] is int publicFlags ? publicFlags : 0
+            };
         }
 
 
