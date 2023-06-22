@@ -11,7 +11,7 @@ on:
       - "*"
 
 env:
-  IMAGE_NAME: groundhogweb
+  IMAGE_NAME: groundhog_web
 
 jobs:
   push:
@@ -47,3 +47,16 @@ jobs:
           echo VERSION=$VERSION
           docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+            docker pull $IMAGE_ID:$VERSION
+            docker stop $IMAGE_NAME || true
+            docker rm $IMAGE_NAME || true
+            docker run -d --name $IMAGE_NAME -p 80:80 $IMAGE_ID:$VERSION
