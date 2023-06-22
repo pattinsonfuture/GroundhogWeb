@@ -2,26 +2,48 @@ name: CI
 
 on:
   push:
+    # Publish `master` as Docker `latest` image.
+    branches:
+      - master
+
+    # Publish `v1.2.3` tags as releases.
     tags:
-      - '*'
+      - "*"
+
+env:
+  IMAGE_NAME: groundhogweb
 
 jobs:
-  build-and-push:
+  push:
     runs-on: ubuntu-latest
-
+    permissions:
+      packages: write
+      contents: read
+      
+      
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-    - name: Log in to GitHub Packages
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
 
-    - name: Set Docker image version
-      id: vars
-      run: echo "::set-output name=version::${GITHUB_REF#refs/tags/}"
+      - name: Log in to registry
+        # This is where you will update the personal access token to GITHUB_TOKEN
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
 
-    - name: Build Docker image
-      run: docker build -t docker.pkg.github.com/${{ github.repository }}/GroundhogWeb:${{ steps.vars.outputs.version }} .
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
 
-    - name: Push Docker image to GitHub Packages
-      run: docker push docker.pkg.github.com/${{ github.repository }}/GroundhogWeb:${{ steps.vars.outputs.version }}
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # Use Docker `latest` tag convention
+          [ "$VERSION" == "main" ] && VERSION=latest
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
