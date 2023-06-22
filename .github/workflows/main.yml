@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Log in to GitHub Packages
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+
+    - name: Set Docker image version
+      id: vars
+      run: echo "::set-output name=version::${GITHUB_REF#refs/tags/}"
+
+    - name: Build Docker image
+      run: docker build -t docker.pkg.github.com/${{ github.repository }}/GroundhogWeb:${{ steps.vars.outputs.version }} .
+
+    - name: Push Docker image to GitHub Packages
+      run: docker push docker.pkg.github.com/${{ github.repository }}/GroundhogWeb:${{ steps.vars.outputs.version }}
