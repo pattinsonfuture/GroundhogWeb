@@ -56,7 +56,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+            echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u $ --password-stdin
 
             sudo docker pull $IMAGE_ID:$VERSION
             sudo docker stop $IMAGE_NAME || true
