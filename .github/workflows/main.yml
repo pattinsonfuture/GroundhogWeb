@@ -56,6 +56,18 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+
+            # Change all uppercase to lowercase
+            IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+            # Strip git ref prefix from version
+            VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+            # Strip "v" prefix from tag name
+            [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+            # Use Docker `latest` tag convention
+            [ "$VERSION" == "main" ] && VERSION=latest
+            echo IMAGE_ID=$IMAGE_ID
+            echo VERSION=$VERSION
+            
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u $ --password-stdin
 
             sudo docker pull $IMAGE_ID:$VERSION
