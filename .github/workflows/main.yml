@@ -56,7 +56,8 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
-            docker pull $IMAGE_ID:$VERSION
-            docker stop $IMAGE_NAME || true
-            docker rm $IMAGE_NAME || true
-            docker run -d --name $IMAGE_NAME -p 80:80 $IMAGE_ID:$VERSION
+
+            sudo docker pull $IMAGE_ID:$VERSION
+            sudo docker stop $IMAGE_NAME || true
+            sudo docker rm $IMAGE_NAME || true
+            sudo docker run -d --name $IMAGE_NAME -p 80:80 $IMAGE_ID:$VERSION
