@@ -19,4 +19,6 @@ RUN dotnet publish "GroundhogWeb.csproj" -c Release -o /app/publish /p:UseAppHos
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY appsettings.json .
+ENV ASPNETCORE_URLS=http://+:80
 ENTRYPOINT ["dotnet", "GroundhogWeb.dll"]
