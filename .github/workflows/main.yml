@@ -77,4 +77,4 @@ jobs:
             sudo docker pull $IMAGE_ID:$VERSION
             sudo docker stop groundhog_web|| true
             sudo docker rm groundhog_web || true
-            sudo docker run -d --name groundhog_web -p 80:80 $IMAGE_ID:$VERSION
+            sudo docker run -d --name groundhog_web -l "traefik.enable=true" -l "traefik.http.routers.groundhog_web.rule=Host(`groundhog.in`)" - l "traefik.http.routers.groundhog_web.entrypoints=web" $IMAGE_ID:$VERSION
